@@ -69,4 +69,31 @@ its CSV (same column format) into `data/raw/` with a descriptive filename.
 
 - Support additional bank CSV formats (column-mapping config per source)
 - Manual category overrides for `Uncategorized` / `Category Pending` rows
-- Budget vs. actual comparison per category
+
+## Future state: benchmark spend against recommended budget guidelines
+
+Compare actual spend, as a percentage of take-home income, against the general
+allocation guidelines financial advisors commonly cite (e.g. the 50/30/20 rule —
+50% needs, 30% wants, 20% savings/debt paydown — or more granular per-category
+benchmarks like "housing ≤30% of income," "transportation ≤15%," "food ≤10–15%,"
+"savings ≥20%"), and flag where actual spend is over or under.
+
+Design notes for when this gets built:
+
+- **Income basis**: use the `Income`/`Paycheck` category totals already in the
+  data as the take-home-pay figure — bank deposits are already net of tax and
+  payroll deductions, so no separate manual income entry should be needed.
+- **Category mapping**: USAA's ~50 categories are far more granular than a
+  50/30/20-style framework, so this needs a config mapping granular categories
+  to broader buckets (e.g. `Mortgage & Rent` → Housing; `Groceries` +
+  `Restaurants` + `Fast Food` → Food; `Gas` + `Service & Parts` + `Parking` →
+  Transportation; savings/investment transfers → Savings; everything else →
+  Discretionary/Wants).
+- **Configurable targets**: the specific recommended percentages vary by source
+  and by the user's own goals, so targets should be editable (a config file or
+  in-app settings), not hardcoded — ship one framework as a sensible default.
+- **UI**: a new view showing actual % vs. target % per bucket (e.g. a bar or
+  bullet chart per bucket, over/under called out), likely computed over the
+  same date-range filter as the rest of the dashboard.
+- **Framing**: these are general rules of thumb from personal finance sources,
+  not personalized financial advice — the UI should say so.
