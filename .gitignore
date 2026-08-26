@@ -4,6 +4,9 @@ __pycache__/
 venv/
 .DS_Store
 
+# built app bundle — hardcodes this machine's absolute repo path, rebuild if the repo moves
+Spend Tracker.app/
+
 # local data — never commit personal financial data
 data/*.db
 data/raw/*.csv

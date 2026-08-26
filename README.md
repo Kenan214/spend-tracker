@@ -13,14 +13,30 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. Run the app:
-   ```bash
-   streamlit run src/spend_tracker/app.py
-   ```
-2. Import a CSV export either by dragging it onto the uploader in the sidebar,
-   or by dropping the file into `data/raw/` directly — both land in the same
-   place and get imported into a local SQLite database (`data/spend.db`).
-3. Filter by date range, account, category, and pending/posted status.
+**As a Mac app (recommended):** double-click `Spend Tracker.app` in this folder
+(or move/alias it to `/Applications` or the Dock). It opens as a native window —
+no browser tab or terminal needed — and sets up the Python environment on first
+run if it doesn't exist yet.
+
+If you ever move this repo to a different path, rebuild the app so it points at
+the new location:
+```bash
+rm -rf "Spend Tracker.app"
+osacompile -o "Spend Tracker.app" launcher.applescript
+```
+(`launcher.applescript` and `launch_app.sh` both assume the repo lives where it
+currently does — `chmod +x launch_app.sh` if it ever loses its execute bit.)
+
+**From the terminal (browser tab instead of a native window):**
+```bash
+source .venv/bin/activate
+streamlit run src/spend_tracker/app.py
+```
+
+**Either way**, import a CSV export by dragging it onto the uploader in the
+sidebar, or by dropping the file into `data/raw/` directly — both land in the
+same place and get imported into a local SQLite database (`data/spend.db`).
+Then filter by date range, account, category, and pending/posted status.
 
 Re-importing the same file, or a newer export that overlaps with data you
 already have (e.g. dropping in a full Jan–Dec export in December after
