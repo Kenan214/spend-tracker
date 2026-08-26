@@ -112,6 +112,24 @@ Design notes for when this gets built:
 - **Configurable targets**: the specific recommended percentages vary by source
   and by the user's own goals, so targets should be editable (a config file or
   in-app settings), not hardcoded — ship one framework as a sensible default.
+- **Selectable framework, not just one**: since there are several well-known
+  recommendation frameworks (50/30/20, category-specific rules like housing
+  ≤30%, and others), let the user pick which one to benchmark against rather
+  than hardcoding a single choice. Each framework should show its own
+  breakdown plus a short pros/cons/details writeup (e.g. 50/30/20 is simple
+  but coarse; category-specific rules are more precise but assume a "typical"
+  household that may not match this one) so the choice is informed rather
+  than arbitrary.
+- **Required-bills vs. discretionary highlight**: using the bills view (above)
+  to know what's a required/fixed obligation, visually separate "spend outside
+  required bills" from bills themselves in this view — makes it obvious how
+  much of any overage is actually discretionary and therefore adjustable,
+  versus fixed and not.
+- **Recommended decrease guidance**: when a bucket exceeds its target under
+  the selected framework, compute and show a concrete suggested reduction (in
+  dollars and/or percentage) needed to bring that bucket back to the
+  recommended split — not just an over/under flag, but "you're $X/month over
+  the Food target under this framework."
 - **UI**: a new view showing actual % vs. target % per bucket (e.g. a bar or
   bullet chart per bucket, over/under called out), likely computed over the
   same date-range filter as the rest of the dashboard.
