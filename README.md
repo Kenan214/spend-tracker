@@ -80,9 +80,29 @@ benchmarks like "housing ≤30% of income," "transportation ≤15%," "food ≤10
 
 Design notes for when this gets built:
 
-- **Income basis**: use the `Income`/`Paycheck` category totals already in the
-  data as the take-home-pay figure — bank deposits are already net of tax and
-  payroll deductions, so no separate manual income entry should be needed.
+- **Income basis**: `Income`/`Paycheck` deposit totals from the bank data are a
+  reasonable default take-home-pay figure and require no manual entry, but
+  they'll skew the percentages if used as the sole basis:
+  - Some guidelines (e.g. 50/30/20) are meant to apply to *net* take-home pay,
+    but others (e.g. the classic "housing ≤30% of income" rule) are
+    traditionally expressed as a percentage of *gross* income. Applying a
+    gross-based benchmark to net take-home makes every percentage look
+    inflated, since net is a smaller number than gross.
+  - Money deducted *before* the paycheck hits the bank — 401(k)/retirement
+    contributions, HSA/FSA, health insurance premiums — never appears in bank
+    data at all. A "savings %" computed purely from deposits could show 0%
+    savings even when 10%+ is already happening via payroll deduction, and
+    similarly understate real insurance spend.
+  - Fixing this requires optionally entering **taxable salary**, **non-taxable
+    income**, and **pay stub detail** (gross pay, tax withholding, FICA,
+    retirement contributions, insurance premiums, other deductions) per pay
+    period, stored locally and separate from imported transactions since
+    banks don't export this. That gives an exact gross-to-net breakdown so
+    guidelines can be applied against the income base they actually intend,
+    and payroll-deducted savings/insurance aren't invisible. Entries should
+    carry an effective-date range since salary and benefit elections change
+    (raises, open enrollment). This should stay optional — bank-deposit
+    income remains a sufficient default if the extra precision isn't needed.
 - **Category mapping**: USAA's ~50 categories are far more granular than a
   50/30/20-style framework, so this needs a config mapping granular categories
   to broader buckets (e.g. `Mortgage & Rent` → Housing; `Groceries` +
