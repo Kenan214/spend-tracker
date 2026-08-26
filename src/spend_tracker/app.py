@@ -42,30 +42,54 @@ def themed(chart: alt.Chart) -> alt.Chart:
     )
 
 
+def save_uploaded_files(uploaded_files) -> None:
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    for uploaded in uploaded_files:
+        dest = RAW_DIR / uploaded.name
+        dest.write_bytes(uploaded.getvalue())
+
+
 def import_new_files(conn) -> None:
     files = importer.find_csv_files(RAW_DIR)
     if not files:
         return
     total_inserted = total_updated = 0
+    errors = []
     for path in files:
-        df = importer.load_csv(path)
+        try:
+            df = importer.load_csv(path)
+        except (ValueError, pd.errors.ParserError) as exc:
+            errors.append(f"{path.name}: {exc}")
+            continue
         inserted, updated = db.upsert_transactions(conn, df)
         total_inserted += inserted
         total_updated += updated
     if total_inserted or total_updated:
         st.sidebar.success(f"Imported: {total_inserted} new, {total_updated} updated")
+    for err in errors:
+        st.sidebar.error(f"Skipped {err}")
 
 
 def main() -> None:
     st.set_page_config(page_title="Spend Tracker", layout="wide")
     st.title("Spend Tracker")
 
+    st.sidebar.header("Import")
+    uploaded_files = st.sidebar.file_uploader(
+        "Drag & drop a CSV export",
+        type="csv",
+        accept_multiple_files=True,
+        help="USAA-style export: Date, Description, Original Description, Category, Amount, Status",
+    )
+    if uploaded_files:
+        save_uploaded_files(uploaded_files)
+
     conn = db.get_connection()
     import_new_files(conn)
     tx = db.fetch_transactions(conn)
 
     if tx.empty:
-        st.info(f"Drop a CSV export into `{RAW_DIR}` and rerun the app.")
+        st.info("Drag a CSV export into the uploader in the sidebar to get started.")
         return
 
     st.sidebar.header("Filters")

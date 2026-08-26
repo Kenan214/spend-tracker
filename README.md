@@ -13,19 +13,21 @@ pip install -r requirements.txt
 
 ## Usage
 
-1. Drop a CSV export into `data/raw/` (see format below).
-2. Run the app:
+1. Run the app:
    ```bash
    streamlit run src/spend_tracker/app.py
    ```
-3. The app imports any CSVs in `data/raw/` into a local SQLite database
-   (`data/spend.db`) on each run, then lets you filter by date range, account,
-   category, and pending/posted status.
+2. Import a CSV export either by dragging it onto the uploader in the sidebar,
+   or by dropping the file into `data/raw/` directly — both land in the same
+   place and get imported into a local SQLite database (`data/spend.db`).
+3. Filter by date range, account, category, and pending/posted status.
 
-Re-running with the same file, or a file with overlapping transactions, is safe —
-transactions are deduplicated by (date, original description, amount), and
-existing rows are updated in place (useful when a pending transaction later
-posts with a finalized category).
+Re-importing the same file, or a newer export that overlaps with data you
+already have (e.g. dropping in a full Jan–Dec export in December after
+already importing Jan–Aug), is safe — transactions are deduplicated by
+(date, original description, amount, occurrence), and existing rows are
+updated in place (useful when a pending transaction later posts with a
+finalized category). Only genuinely new transactions get added.
 
 ## Expected CSV format
 
