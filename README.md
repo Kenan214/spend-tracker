@@ -117,3 +117,69 @@ Design notes for when this gets built:
   same date-range filter as the rest of the dashboard.
 - **Framing**: these are general rules of thumb from personal finance sources,
   not personalized financial advice — the UI should say so.
+
+## Future state: household accounts with a per-person split view
+
+Import a second person's (spouse's) bank statements so overall household spend
+and income reflect both, while still being able to see the split between the
+two of you, not just a combined total.
+
+Design notes for when this gets built:
+
+- Partly supported already — `account` is a first-class field on every
+  transaction, and the sidebar's Accounts filter can already isolate one
+  account or combine all of them.
+- Her bank is unlikely to be USAA, so this depends on the "additional bank CSV
+  formats" next step above — a per-source column-mapping config (keyed by
+  filename pattern or a small config file) since the raw column names/layout
+  will differ from USAA's.
+- A real split view is more than the existing filter: a side-by-side
+  comparison (e.g. grouped or stacked bars per person, per category or per
+  month) so "you vs. her" spend is visible in the same chart, rather than
+  switching between two independently-filtered dashboards.
+- Default to the combined household view for totals and the budget-guideline
+  comparison (since those recommendations are usually household-income-based),
+  with the per-person breakdown available as a drill-down.
+
+## Future state: bills view with manual overrides
+
+A dedicated view for recurring/fixed obligations (rent, utilities, insurance,
+subscriptions, loan payments) — distinct from one-off discretionary spend —
+with the ability to manually add or correct a bill if it isn't represented
+correctly (miscategorized, paid through a channel that doesn't show up
+clearly in the CSV, or missing entirely).
+
+Design notes for when this gets built:
+
+- Recurring-transaction detection: flag transactions with the same merchant/
+  description recurring at a roughly monthly (or other) cadence and similar
+  amount as candidate bills, surfaced for confirmation rather than assumed.
+- A manual bill registry (a separate local table) where a bill's name,
+  expected amount, category, and cadence can be defined or edited independent
+  of transaction categorization — this is where a miscategorized bill gets
+  corrected, or one that isn't clearly showing up gets added by hand.
+- This overlaps with the manual category override next-step above — bill
+  correction is really a specialized case of that same override mechanism,
+  scoped to recurring obligations rather than one-off transactions.
+
+## Future state: Claude Code skill to classify unknown transactions
+
+Rather than relying solely on hardcoded keyword rules, use Claude's judgment
+to work through `Uncategorized` / `Category Pending` transactions and propose
+correct categories — merchant description strings are often messy and
+inconsistent in ways simple rules tend to miss, and fuzzy pattern matching is
+exactly what Claude is good at.
+
+Design notes for when this gets built:
+
+- Feasible as a Claude Code skill: it would query `spend.db` for rows needing
+  classification, look at `original_description`/`description`, cross-reference
+  how similar merchant strings were already categorized elsewhere in the data,
+  and propose a category per distinct merchant for the user to confirm.
+- Confirmed classifications should be written to a persistent
+  `category_overrides` table keyed by **merchant pattern**, not by individual
+  transaction — so a fix applies to every past and future occurrence of that
+  merchant and survives re-imports, instead of being a one-off correction.
+- Complementary to, not a replacement for, the manual category override
+  next-step above — the skill is the assisted workflow for filling in that
+  override table, rather than a separate mechanism from it.
