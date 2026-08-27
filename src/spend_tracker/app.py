@@ -9,6 +9,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+import budget_guidelines
 import db
 import importer
 
@@ -238,6 +239,67 @@ def main() -> None:
         ],
     )
     st.altair_chart(themed(stacked), use_container_width=True)
+
+    st.subheader("Budget guideline: 50/30/20")
+    st.caption(
+        "General rule of thumb, not personalized financial advice. Income basis "
+        "is raw bank deposits (no pay-stub entry yet), so payroll-deducted "
+        "savings/insurance aren't reflected here."
+    )
+    if total_income <= 0:
+        st.info("No income (deposits) in the current filters — can't compute percentages.")
+    else:
+        needs_spend = spend_only.loc[
+            spend_only["category"].map(budget_guidelines.bucket_for) == "Needs", "amount"
+        ].abs().sum()
+        wants_spend = spend_only.loc[
+            spend_only["category"].map(budget_guidelines.bucket_for) == "Wants", "amount"
+        ].abs().sum()
+        unmapped_spend = spend_only.loc[
+            spend_only["category"].map(budget_guidelines.bucket_for) == "Unmapped", "amount"
+        ].abs().sum()
+
+        guideline_df = pd.DataFrame([
+            {"bucket": "Needs", "actual_pct": needs_spend / total_income,
+             "target_pct": budget_guidelines.TARGET_PCT["Needs"]},
+            {"bucket": "Wants", "actual_pct": wants_spend / total_income,
+             "target_pct": budget_guidelines.TARGET_PCT["Wants"]},
+            {"bucket": "Savings", "actual_pct": net / total_income,
+             "target_pct": budget_guidelines.TARGET_PCT["Savings"]},
+        ])
+        guideline_df["over_target"] = guideline_df.apply(
+            lambda r: r["actual_pct"] < r["target_pct"] if r["bucket"] == "Savings"
+            else r["actual_pct"] > r["target_pct"],
+            axis=1,
+        )
+
+        bucket_order = ["Needs", "Wants", "Savings"]
+        bars = alt.Chart(guideline_df).mark_bar(cornerRadiusEnd=4, size=24).encode(
+            x=alt.X("actual_pct:Q", title="% of income", axis=alt.Axis(format="%")),
+            y=alt.Y("bucket:N", sort=bucket_order, title=None),
+            color=alt.condition(
+                "datum.over_target", alt.value(ORANGE), alt.value(BLUE)
+            ),
+            tooltip=[
+                alt.Tooltip("bucket:N", title="Bucket"),
+                alt.Tooltip("actual_pct:Q", title="Actual", format=".1%"),
+                alt.Tooltip("target_pct:Q", title="Target", format=".1%"),
+            ],
+        )
+        ticks = alt.Chart(guideline_df).mark_tick(
+            color=LABEL_COLOR, thickness=2, size=32
+        ).encode(
+            x="target_pct:Q",
+            y=alt.Y("bucket:N", sort=bucket_order, title=None),
+        )
+        st.altair_chart(themed(bars + ticks), use_container_width=True)
+        st.caption("Bar = actual % of income · tick = target % under 50/30/20. Orange = off target.")
+
+        if unmapped_spend > 0:
+            st.caption(
+                f"${unmapped_spend:,.2f} of spend is in categories not yet mapped to "
+                "Needs/Wants (excluded from the bars above)."
+            )
 
     with st.expander("View transactions as table"):
         st.dataframe(
