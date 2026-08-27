@@ -180,7 +180,7 @@ Design notes for when this gets built:
   correction is really a specialized case of that same override mechanism,
   scoped to recurring obligations rather than one-off transactions.
 
-## Future state: Claude Code skill to classify unknown transactions
+## Future state: in-app chat advisor for transaction classification, spend Q&A & affordability decisions
 
 Rather than relying solely on hardcoded keyword rules, use Claude's judgment
 to work through `Uncategorized` / `Category Pending` transactions and propose
@@ -188,16 +188,77 @@ correct categories — merchant description strings are often messy and
 inconsistent in ways simple rules tend to miss, and fuzzy pattern matching is
 exactly what Claude is good at.
 
+This started as a plain Claude Code skill (a batch, run-from-the-terminal
+workflow), but the more useful shape is a **back-and-forth chat interface
+embedded in the app itself**, since some questions genuinely need a
+conversation rather than a one-shot classification: e.g. the `Gas` category
+in USAA exports mixes actual fuel purchases with snacks/drinks bought at the
+same pump transaction, which a single batch pass can't disambiguate but a
+chat can ("show me the Gas transactions over $30" vs "under $10").
+
+The same chat surface is also the natural place for affordability
+decisions — "based on my current financial state, can I afford a new
+$X/month bill?" — since answering that well means combining several other
+pieces already on this page (see the affordability bullet below) rather
+than being a separate feature bolted on afterward.
+
 Design notes for when this gets built:
 
-- Feasible as a Claude Code skill: it would query `spend.db` for rows needing
-  classification, look at `original_description`/`description`, cross-reference
-  how similar merchant strings were already categorized elsewhere in the data,
-  and propose a category per distinct merchant for the user to confirm.
+- **Chat UI**: Streamlit's `st.chat_message`/`st.chat_input` plus
+  `st.session_state` for conversation history — this part is cheap.
+- **Backend: wrap the Claude Code CLI, not the Anthropic API.** Calling the
+  Messages API directly (or the Claude Agent SDK) requires a separate,
+  metered API key billed per token. Shelling out to `claude -p "<prompt>"
+  --output-format json` instead rides on an existing Claude Pro/Max
+  subscription — same underlying model, no separate bill. This was a
+  deliberate choice, not an oversight: the Agent SDK's `ClaudeSDKClient`
+  *does* support a persistent in-process session (avoiding the per-message
+  CLI startup latency, confirmed ~1-2s per call), but only under API-key/
+  metered billing — there is no documented way to keep the CLI itself
+  "warm" across turns. Accept the per-turn latency; revisit the Agent SDK
+  only if that latency proves genuinely unacceptable in practice and paying
+  for a separate API key becomes worth it.
+- **Scoped custom tools via MCP, not generic Bash.** Claude Code's default
+  Bash tool can touch anything in the repo, which is too broad for a chat
+  embedded in a budgeting UI. Instead, write a small local MCP server
+  exposing exactly two typed tools — `search_transactions` (read) and
+  `apply_category_override` (write) — and restrict the CLI invocation to
+  those (deny/restrict Bash via `settings.json` or `--allowedTools`). This
+  is the CLI-equivalent of defining tools for the Messages API: same idea
+  (typed schema, your code executes it, result goes back to Claude), just
+  via the MCP protocol instead of inline in an API call.
+- **Conversation continuity** across separate CLI invocations via
+  `--resume <session-id>` / `--continue` — each turn is still a fresh
+  process, but it resumes the same logical session rather than needing the
+  full history re-sent in the prompt.
+- **Affordability decisions ("can I afford a new $X/month bill?") depend on
+  two other future-state pieces above, not just the chat itself:**
+  - The **bills view** to know current committed/fixed obligations
+    separately from discretionary spend — "afford" should be judged against
+    money left over *after* existing bills, not against total spend, which
+    conflates the two.
+  - The **budget-guideline benchmark** to phrase the answer in those terms —
+    e.g. "adding this would push Needs to 54% of income, above the 50%
+    target" — rather than just a raw dollar-leftover number.
+  - A third read tool, `get_cashflow_summary(lookback_months)`, giving
+    average income/bills/discretionary-spend/net over a trailing window
+    (e.g. 6 months) rather than a single month, since spend is uneven month
+    to month and a single recent month could make the answer misleadingly
+    optimistic or pessimistic.
+  - Answer format: state the trailing average net cash flow, subtract the
+    new bill, and say what that does to slack and to any budget-guideline
+    bucket — a concrete "here's the math," not a bare yes/no. Same framing
+    caveat as the budget-guideline feature: this is arithmetic over logged
+    history, not personalized financial advice, and the chat should say so.
 - Confirmed classifications should be written to a persistent
   `category_overrides` table keyed by **merchant pattern**, not by individual
   transaction — so a fix applies to every past and future occurrence of that
   merchant and survives re-imports, instead of being a one-off correction.
+  The chat should show the proposed override and get an explicit confirm
+  before writing, same as the manual override flow below.
+- **Ship read-only first**: a v1 that can look at and discuss transactions
+  (no writes) is a smaller, useful slice on its own — add
+  `apply_category_override` once the read-only version has been used a bit.
 - Complementary to, not a replacement for, the manual category override
-  next-step above — the skill is the assisted workflow for filling in that
+  next-step above — this is the assisted workflow for filling in that
   override table, rather than a separate mechanism from it.
