@@ -1,7 +1,7 @@
 """Account ownership tags — v1 slice of the "Future state: multi-account
 household view with a per-person split" plan in README.md.
 
-An account's owner (e.g. "Kenan" vs "Wife") is independent of the account/
+An account's owner (e.g. "You" vs "Partner") is independent of the account/
 bank label `importer.account_name_from_filename` derives from the CSV
 filename — two accounts at the same bank can belong to different owners.
 Ownership is stored in the `account_owners` table (see db.py) and assigned

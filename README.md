@@ -126,7 +126,7 @@ What's actually built today, as distinct from the future-state plans below:
   payroll-deducted retirement/HSA/insurance contributions as real savings
   the bank data can't see; bank-deposit income alone remains the default
   when no pay profile is entered. See `src/spend_tracker/pay_profiles.py`.
-- Household tab: tag each account with an owner (e.g. "Kenan" vs "Wife"),
+- Household tab: tag each account with an owner (e.g. "You" vs "Partner"),
   independent of the bank/account label derived from the filename. Any
   newly-imported account not yet tagged prompts in the sidebar for who it
   belongs to (an existing owner or a new one); a "Manage account owners"

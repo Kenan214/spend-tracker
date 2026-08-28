@@ -5,7 +5,7 @@
 	<key>CFBundleExecutable</key>
 	<string>launcher</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.kenan.spendtracker</string>
+	<string>com.spendtracker.app</string>
 	<key>CFBundleName</key>
 	<string>Spend Tracker</string>
 	<key>CFBundleDisplayName</key>
