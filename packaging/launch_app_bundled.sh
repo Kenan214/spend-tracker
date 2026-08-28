@@ -37,17 +37,25 @@ fi
 
 if [ ! -d "$VENV_DIR" ]; then
   osascript -e 'display notification "First launch — setting up, this can take a minute…" with title "Spend Tracker"' >/dev/null 2>&1
+  {
+    echo "$(date): looking for Python $MIN_PY_MAJOR.$MIN_PY_MINOR+, PATH=$PATH"
+  } >>/tmp/spend-tracker.log
   # Try every python3.x on PATH, not just the first one: a broken install
   # (e.g. a Homebrew Python with a broken ensurepip/pyexpat, seen in testing)
   # or one too old for our dependencies shouldn't block launch if a working,
   # sufficiently new interpreter is also available.
   created=0
   for candidate in $(compgen -c python3 | sort -u); do
-    command -v "$candidate" >/dev/null 2>&1 || continue
-    python_new_enough "$candidate" || continue
+    command -v "$candidate" >/dev/null 2>&1 || { echo "  $candidate: not runnable" >>/tmp/spend-tracker.log; continue; }
+    if ! python_new_enough "$candidate"; then
+      echo "  $candidate: $("$candidate" --version 2>&1) — too old or broken" >>/tmp/spend-tracker.log
+      continue
+    fi
+    echo "  $candidate: $("$candidate" --version 2>&1) — trying venv creation" >>/tmp/spend-tracker.log
     rm -rf "$VENV_DIR"
     if "$candidate" -m venv "$VENV_DIR" 2>>/tmp/spend-tracker.log; then
       created=1
+      echo "  $candidate: venv created successfully" >>/tmp/spend-tracker.log
       break
     fi
   done
