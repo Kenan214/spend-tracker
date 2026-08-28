@@ -14,8 +14,11 @@
 # being able to write next to itself, or on paths outside the bundle being
 # visible at all.
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../Resources/app" && pwd)"
+APP_BUNDLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUPPORT_DIR="$HOME/Library/Application Support/Spend Tracker"
 VENV_DIR="$SUPPORT_DIR/venv"
+PENDING_DIR="$SUPPORT_DIR/pending_update"
+UPDATE_LOG="/tmp/spend-tracker-updater.log"
 # Floor set by requirements.txt's most demanding dependency (mcp>=2.0 needs
 # Python >=3.10) — a venv built with anything older, e.g. the Python 3.9
 # stub Xcode Command Line Tools installs at /usr/bin/python3 on Macs with no
@@ -47,6 +50,37 @@ python_new_enough() {
 
 mkdir -p "$SUPPORT_DIR"
 export SPEND_TRACKER_DATA_DIR="$SUPPORT_DIR"
+
+# Self-update, part 1: apply an update staged by a previous launch's
+# background check (see update_check.sh in Resources/app, spawned near the
+# bottom of this script). READY is only ever touched after the new app is
+# fully downloaded, extracted, and codesign-verified, so its presence alone
+# is trustworthy. Swap the whole bundle rather than patching the running
+# one in place — an ad-hoc signature covers the bundle as of the last
+# `codesign`, and editing files after that invalidates it (macOS then
+# reports the app as "damaged", not just "unidentified developer"). The two
+# `mv`s below are same-volume renames, so they're effectively atomic and
+# safe to do while this very script is executing out of the directory
+# being renamed — the shell keeps reading from the already-open (now
+# unlinked-by-name) old file until we `exec` into the new one below.
+if [ -f "$PENDING_DIR/READY" ] && [ -d "$PENDING_DIR/Spend Tracker.app" ]; then
+  echo "$(date): applying staged update from $PENDING_DIR" >>"$UPDATE_LOG"
+  BACKUP_BUNDLE="$SUPPORT_DIR/previous_version.app"
+  rm -rf "$BACKUP_BUNDLE"
+  if mv "$APP_BUNDLE" "$BACKUP_BUNDLE" 2>>"$UPDATE_LOG" \
+     && mv "$PENDING_DIR/Spend Tracker.app" "$APP_BUNDLE" 2>>"$UPDATE_LOG"; then
+    rm -rf "$PENDING_DIR" "$BACKUP_BUNDLE"
+    echo "$(date): update applied, relaunching from $APP_BUNDLE" >>"$UPDATE_LOG"
+    exec "$APP_BUNDLE/Contents/MacOS/launcher"
+  else
+    # Swap failed partway (e.g. install location isn't writable by this
+    # user) — restore the original app rather than leaving neither in
+    # place, discard the update, and fall through to a normal launch.
+    echo "$(date): update swap failed, restoring original" >>"$UPDATE_LOG"
+    [ -d "$BACKUP_BUNDLE" ] && [ ! -d "$APP_BUNDLE" ] && mv "$BACKUP_BUNDLE" "$APP_BUNDLE"
+    rm -rf "$PENDING_DIR"
+  fi
+fi
 
 # An existing venv from a previous, older/broken interpreter attempt isn't
 # good enough just because the directory exists — validate it, or rebuild.
@@ -90,6 +124,19 @@ if ! pip install -q -r "$DIR/requirements.txt" 2>>/tmp/spend-tracker.log; then
   last_error="$(tail -3 /tmp/spend-tracker.log | tr '\n' ' ' | sed 's/"/\\"/g')"
   alert "Couldn't install Spend Tracker's dependencies: ${last_error:-see /tmp/spend-tracker.log for details}"
   exit 1
+fi
+
+# Self-update, part 2: kick off a background check for a newer release.
+# Detached (nohup + disown + redirected fds) so it survives this shell
+# exiting when the user quits the app, and entirely silent — no network,
+# no newer release, a corrupted download, etc. must ever be visible to the
+# user or block using the current install. Only real distributable builds
+# carry a VERSION file (build_release.sh writes it); a dev checkout has
+# none, so this is a no-op there.
+if [ -f "$DIR/VERSION" ] && [ -x "$DIR/update_check.sh" ]; then
+  CURRENT_VERSION="$(cat "$DIR/VERSION")"
+  nohup "$DIR/update_check.sh" "$CURRENT_VERSION" >/dev/null 2>>"$UPDATE_LOG" &
+  disown
 fi
 
 python "$DIR/src/spend_tracker/desktop_app.py"

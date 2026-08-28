@@ -36,9 +36,24 @@ cp "$ROOT/packaging/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/packaging/launcher" "$APP/Contents/MacOS/launcher"
 chmod +x "$APP/Contents/MacOS/launcher"
 
+# CFBundleShortVersionString/CFBundleVersion in the committed Info.plist
+# are just placeholders — stamp in the real version here so the on-disk
+# Info.plist matches what's actually running. (Not load-bearing for the
+# updater itself, which reads Resources/app/VERSION instead, but it's what
+# Finder's Get Info / `mdls` shows, and it'd be misleading left at "1.0".)
+VERSION_NUM="${VERSION#v}"
+plutil -replace CFBundleShortVersionString -string "$VERSION_NUM" "$APP/Contents/Info.plist"
+plutil -replace CFBundleVersion -string "$VERSION_NUM" "$APP/Contents/Info.plist"
+
 RESOURCES="$APP/Contents/Resources/app"
 cp -R "$ROOT/src" "$RESOURCES/src"
 cp "$ROOT/requirements.txt" "$RESOURCES/requirements.txt"
+cp "$ROOT/packaging/update_check.sh" "$RESOURCES/update_check.sh"
+chmod +x "$RESOURCES/update_check.sh"
+# The updater's own source of truth for "what version is this install" —
+# kept as the exact tag (e.g. "v0.1.2") since that's what's compared
+# against GitHub release tag_names, no v-stripping/reformatting needed.
+echo "$VERSION" >"$RESOURCES/VERSION"
 
 # __pycache__ (stale bytecode from running src/ locally) and any extended
 # attributes carried over by cp (e.g. com.apple.provenance) both make

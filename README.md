@@ -19,7 +19,8 @@ CSV exports. Everything runs and stores data locally — nothing leaves your mac
      with an **Open Anyway** button next to it. Click it, confirm again,
      and it launches.
    - This one-time approval is only needed the first launch; every launch
-     after that is a normal double-click.
+     after that is a normal double-click. It's also the *last* time you'll
+     need to do this manually — see "Staying up to date" below.
 3. First launch takes a minute or two — it's installing Python dependencies
    in the background (a "First launch — setting up…" notification appears).
    Requires [Python 3](https://python.org) to already be installed; if it's
@@ -29,17 +30,52 @@ Your data (`spend.db`, imported CSVs) lives in
 `~/Library/Application Support/Spend Tracker/`, separate from the app itself
 — it's untouched if you later update to a newer release.
 
+### Staying up to date
+
+Once you've approved and launched the app the first time, it keeps itself
+up to date automatically — no more re-downloading from GitHub or clicking
+through **System Settings → Privacy & Security** for later versions.
+
+Every launch, the app quietly checks GitHub for a newer release in the
+background (at most once every 30 minutes) and, if one exists, downloads
+and verifies it without interrupting what you're doing. The next time you
+launch the app, it swaps in the new version before opening (you may notice
+a brief extra moment on that one launch) and you're running the update —
+still with no Gatekeeper prompt, since the app itself downloaded the file
+rather than a browser or Finder. This relies on `com.apple.quarantine` (the
+attribute that triggers Gatekeeper's "unidentified developer" block) only
+being attached by quarantine-aware tools like Safari or Finder's
+unzip-from-download — a plain background download by an app you've already
+approved never gets it, the same trick real third-party updaters (e.g.
+Sparkle) rely on.
+
+This is entirely best-effort: no internet, GitHub being unreachable, a
+corrupted download, etc. never blocks or breaks the currently-installed
+version — it just means you'll keep running the current version until the
+next successful check. There's no user-facing setting for this yet; it
+can't be turned off.
+
 ## Cutting a release
 
 ```bash
-packaging/build_release.sh v0.1.1
-gh release create v0.1.1 --title v0.1.1 --generate-notes
-gh release upload v0.1.1 dist/SpendTracker-v0.1.1-macOS.zip
+packaging/build_release.sh v0.1.2
+gh release create v0.1.2 --title v0.1.2 --generate-notes
+gh release upload v0.1.2 dist/SpendTracker-v0.1.2-macOS.zip
 ```
 `build_release.sh` produces a self-contained `Spend Tracker.app` (source
 bundled inside `Contents/Resources/app/`, so it doesn't depend on this repo
 checkout) in `dist/`, distinct from the dev-mode app built directly in the
-repo root above.
+repo root above. It also stamps the given version into
+`Contents/Resources/app/VERSION` (the self-updater's source of truth for
+"what's currently installed") and into `Info.plist`'s
+`CFBundleShortVersionString`/`CFBundleVersion` (previously hardcoded to a
+stale `"1.0"`/`"1"` for every build).
+
+The asset name (`SpendTracker-<version>-macOS.zip`) and the fact that
+`releases/latest` is unauthenticated-fetchable now that the repo is public
+are both load-bearing for the self-updater (`packaging/update_check.sh`),
+which parses exactly that filename pattern out of the GitHub Releases API
+response — don't rename the asset format without updating it too.
 
 ## Setup (development)
 
