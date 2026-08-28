@@ -9,10 +9,17 @@ CSV exports. Everything runs and stores data locally — nothing leaves your mac
    [latest release](https://github.com/Kenan214/spend-tracker/releases/latest)
    and unzip it (double-click in Finder if it doesn't auto-unzip).
 2. Move `Spend Tracker.app` wherever you'd like (e.g. `/Applications`), then
-   **right-click it and choose Open** the first time — it's not signed by an
-   identified Apple developer, so a normal double-click will refuse to open it.
-   Confirm "Open" in the dialog that follows; every launch after that works
-   with a normal double-click.
+   double-click it. It's not signed by an identified Apple developer (that
+   requires a paid Apple Developer account), so macOS will block it the
+   first time with a message like *"Apple could not verify... free of
+   malware."* This is expected — to allow it:
+   - Click **Done** (not "Move to Trash") on that dialog.
+   - Open **System Settings → Privacy & Security**, scroll down to the
+     Security section, and you'll see *"Spend Tracker" was blocked...*
+     with an **Open Anyway** button next to it. Click it, confirm again,
+     and it launches.
+   - This one-time approval is only needed the first launch; every launch
+     after that is a normal double-click.
 3. First launch takes a minute or two — it's installing Python dependencies
    in the background (a "First launch — setting up…" notification appears).
    Requires [Python 3](https://python.org) to already be installed; if it's
