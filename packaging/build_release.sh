@@ -35,6 +35,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/app"
 cp "$ROOT/packaging/Info.plist" "$APP/Contents/Info.plist"
 cp "$ROOT/packaging/launcher" "$APP/Contents/MacOS/launcher"
 chmod +x "$APP/Contents/MacOS/launcher"
+cp "$ROOT/packaging/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 
 # CFBundleShortVersionString/CFBundleVersion in the committed Info.plist
 # are just placeholders — stamp in the real version here so the on-disk
