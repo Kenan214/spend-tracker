@@ -28,6 +28,11 @@ MODULE_DIR = Path(__file__).resolve().parent
 MCP_SERVER_PATH = MODULE_DIR / "mcp_server.py"
 ALLOWED_TOOL = "mcp__spend_tracker__search_transactions"
 TURN_TIMEOUT_SECONDS = 120
+SETUP_CHECK_TIMEOUT_SECONDS = 10
+
+# Anthropic's own documented native installer (no Node.js/npm required):
+# https://code.claude.com/docs/en/setup
+INSTALL_COMMAND = "curl -fsSL https://claude.ai/install.sh | bash"
 
 # Fallback locations for the `claude` binary, checked when it's not on PATH.
 # Needed because the native Mac app wrapper (launcher.applescript's `do
@@ -75,6 +80,35 @@ def _claude_binary() -> str:
         f"{', '.join(_CLAUDE_BIN_CANDIDATES)}). Install Claude Code CLI, or "
         "if it's installed somewhere else, add its directory to PATH."
     )
+
+
+def check_setup() -> dict:
+    """Non-interactive check of whether the chat advisor is ready to use.
+
+    Returns {"installed": bool, "logged_in": bool | None, "email": str | None}.
+    logged_in is None if installed but status couldn't be determined (e.g. an
+    unexpectedly old CLI version without `auth status`) — treated as "assume
+    ready" by callers, since send_message will surface a clear error anyway
+    if something's actually wrong.
+    """
+    try:
+        binary = _claude_binary()
+    except ChatError:
+        return {"installed": False, "logged_in": None, "email": None}
+
+    try:
+        proc = subprocess.run(
+            [binary, "auth", "status", "--json"],
+            capture_output=True, text=True, timeout=SETUP_CHECK_TIMEOUT_SECONDS,
+        )
+        status = json.loads(proc.stdout)
+        return {
+            "installed": True,
+            "logged_in": bool(status.get("loggedIn")),
+            "email": status.get("email"),
+        }
+    except Exception:
+        return {"installed": True, "logged_in": None, "email": None}
 
 
 def _mcp_config_json() -> str:

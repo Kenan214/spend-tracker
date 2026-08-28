@@ -348,35 +348,65 @@ def main() -> None:
                 "than a separately metered API key."
             )
 
-        chat_messages = st.session_state.setdefault("chat_messages", [])
-        st.session_state.setdefault("chat_session_id", None)
+        setup_status = st.session_state.get("chat_setup_status")
+        if setup_status is None:
+            setup_status = chat_advisor_module.check_setup()
+            st.session_state["chat_setup_status"] = setup_status
 
-        for msg in chat_messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(escape_markdown_dollars(msg["content"]))
+        if not setup_status["installed"]:
+            st.info(
+                "The chat advisor needs the free **Claude Code CLI** installed — it's "
+                "what lets this run on your existing Claude subscription instead of a "
+                "separately billed API key. It isn't installed yet:"
+            )
+            st.markdown("**1.** Open **Terminal** (press ⌘+Space, type `Terminal`, press Return).")
+            st.markdown("**2.** Paste this command and press Return:")
+            st.code(chat_advisor_module.INSTALL_COMMAND, language="bash")
+            st.markdown(
+                "**3.** Once that finishes, run `claude` in the same Terminal window "
+                "and sign in when your browser opens."
+            )
+            if st.button("I've installed it — check again", key="chat_setup_recheck"):
+                st.session_state["chat_setup_status"] = None
+                st.rerun()
+        elif setup_status["logged_in"] is False:
+            st.info(
+                "Claude Code CLI is installed but not signed in yet. Open **Terminal**, "
+                "run `claude`, and sign in when your browser opens — then come back here."
+            )
+            if st.button("I've signed in — check again", key="chat_setup_recheck"):
+                st.session_state["chat_setup_status"] = None
+                st.rerun()
+        else:
+            chat_messages = st.session_state.setdefault("chat_messages", [])
+            st.session_state.setdefault("chat_session_id", None)
 
-        if chat_messages and st.button("Clear conversation", key="chat_clear"):
-            st.session_state["chat_messages"] = []
-            st.session_state["chat_session_id"] = None
-            st.rerun()
+            for msg in chat_messages:
+                with st.chat_message(msg["role"]):
+                    st.markdown(escape_markdown_dollars(msg["content"]))
 
-        user_prompt = st.chat_input("Ask about your transactions...")
-        if user_prompt:
-            chat_messages.append({"role": "user", "content": user_prompt})
-            with st.chat_message("user"):
-                st.markdown(escape_markdown_dollars(user_prompt))
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    try:
-                        response = chat_advisor_module.send_message(
-                            user_prompt, st.session_state["chat_session_id"]
-                        )
-                        st.session_state["chat_session_id"] = response["session_id"]
-                        reply_text = response["text"]
-                    except chat_advisor_module.ChatError as exc:
-                        reply_text = f"⚠️ {exc}"
-                st.markdown(escape_markdown_dollars(reply_text))
-            chat_messages.append({"role": "assistant", "content": reply_text})
+            if chat_messages and st.button("Clear conversation", key="chat_clear"):
+                st.session_state["chat_messages"] = []
+                st.session_state["chat_session_id"] = None
+                st.rerun()
+
+            user_prompt = st.chat_input("Ask about your transactions...")
+            if user_prompt:
+                chat_messages.append({"role": "user", "content": user_prompt})
+                with st.chat_message("user"):
+                    st.markdown(escape_markdown_dollars(user_prompt))
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        try:
+                            response = chat_advisor_module.send_message(
+                                user_prompt, st.session_state["chat_session_id"]
+                            )
+                            st.session_state["chat_session_id"] = response["session_id"]
+                            reply_text = response["text"]
+                        except chat_advisor_module.ChatError as exc:
+                            reply_text = f"⚠️ {exc}"
+                    st.markdown(escape_markdown_dollars(reply_text))
+                chat_messages.append({"role": "assistant", "content": reply_text})
 
     if spend_only.empty:
         return

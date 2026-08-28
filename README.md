@@ -145,6 +145,10 @@ What's actually built today, as distinct from the future-state plans below:
   Gas over $30?" or a conversational follow-up like "what about over $50
   instead?". Can only look and discuss, not write anything yet. See
   `src/spend_tracker/chat_advisor.py`, `chat_tools.py`, and `mcp_server.py`.
+  If the CLI isn't installed or isn't signed in, the tab shows setup
+  instructions (the exact install command, copyable) and a "check again"
+  button instead of a raw error — `chat_advisor.check_setup()` detects this
+  non-interactively via `claude auth status --json`.
 
 ## Possible next steps
 
