@@ -2,3 +2,4 @@ streamlit>=1.38
 pandas>=2.2
 altair>=5.3
 pywebview>=6.2
+mcp>=2.0
