@@ -3,7 +3,38 @@
 A local app + UI for visualizing personal spend over time, imported from bank/card
 CSV exports. Everything runs and stores data locally — nothing leaves your machine.
 
-## Setup
+## Install (no development tools needed)
+
+1. Download `SpendTracker-<version>-macOS.zip` from the
+   [latest release](https://github.com/Kenan214/spend-tracker/releases/latest)
+   and unzip it (double-click in Finder if it doesn't auto-unzip).
+2. Move `Spend Tracker.app` wherever you'd like (e.g. `/Applications`), then
+   **right-click it and choose Open** the first time — it's not signed by an
+   identified Apple developer, so a normal double-click will refuse to open it.
+   Confirm "Open" in the dialog that follows; every launch after that works
+   with a normal double-click.
+3. First launch takes a minute or two — it's installing Python dependencies
+   in the background (a "First launch — setting up…" notification appears).
+   Requires [Python 3](https://python.org) to already be installed; if it's
+   missing you'll get a clear alert saying so, rather than a silent failure.
+
+Your data (`spend.db`, imported CSVs) lives in
+`~/Library/Application Support/Spend Tracker/`, separate from the app itself
+— it's untouched if you later update to a newer release.
+
+## Cutting a release
+
+```bash
+packaging/build_release.sh v0.1.1
+gh release create v0.1.1 --title v0.1.1 --generate-notes
+gh release upload v0.1.1 dist/SpendTracker-v0.1.1-macOS.zip
+```
+`build_release.sh` produces a self-contained `Spend Tracker.app` (source
+bundled inside `Contents/Resources/app/`, so it doesn't depend on this repo
+checkout) in `dist/`, distinct from the dev-mode app built directly in the
+repo root above.
+
+## Setup (development)
 
 ```bash
 python3 -m venv .venv
@@ -11,7 +42,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Usage
+## Usage (development)
 
 **As a Mac app (recommended):** double-click `Spend Tracker.app` in this folder
 (or move/alias it to `/Applications` or the Dock). It opens as a native window —

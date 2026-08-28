@@ -1,11 +1,18 @@
 """SQLite storage for imported transactions."""
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# Packaged builds (see packaging/) set SPEND_TRACKER_DATA_DIR so user data
+# lives outside the app bundle, in a location that's writable regardless of
+# where the bundle sits and that survives replacing the bundle with a newer
+# build. Local dev (running straight from a repo checkout) leaves it unset
+# and keeps data alongside the source, as before.
+PROJECT_ROOT = Path(os.environ["SPEND_TRACKER_DATA_DIR"]) if os.environ.get("SPEND_TRACKER_DATA_DIR") \
+    else Path(__file__).resolve().parents[2]
 DB_PATH = PROJECT_ROOT / "data" / "spend.db"
 
 SCHEMA = """
