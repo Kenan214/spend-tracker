@@ -18,6 +18,19 @@ VENV_DIR="$SUPPORT_DIR/venv"
 MIN_PY_MAJOR=3
 MIN_PY_MINOR=10
 
+# A GUI-launched app (double-click in Finder) gets launchd's bare default
+# PATH — /usr/bin:/bin:/usr/sbin:/sbin — not the PATH your Terminal has,
+# since that only exists because a shell profile (~/.zprofile etc.) added
+# it, and nothing sources shell profiles for a GUI launch. So Homebrew
+# (/opt/homebrew/bin) and python.org's installer (which doesn't touch PATH
+# at all) are both invisible unless we go looking for them explicitly.
+eval "$(/usr/libexec/path_helper -s)"
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+for _pydir in /Library/Frameworks/Python.framework/Versions/*/bin \
+              /opt/homebrew/opt/python@3.*/bin /usr/local/opt/python@3.*/bin; do
+  [ -d "$_pydir" ] && PATH="$_pydir:$PATH"
+done
+
 alert() {
   osascript -e "display alert \"Spend Tracker\" message \"$1\" as critical" >/dev/null 2>&1
 }
