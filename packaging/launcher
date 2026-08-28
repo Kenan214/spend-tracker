@@ -1,5 +1,11 @@
 #!/bin/bash
-# Copied into Contents/Resources/app/launch_app.sh by build_release.sh.
+# Copied into Contents/MacOS/launcher by build_release.sh — this script IS
+# the app's executable (CFBundleExecutable in Info.plist), run directly by
+# Finder/launchd on double-click. No AppleScript wrapper: an osacompile
+# applet seals its resources at build time, and this bundle's Resources
+# are added after that point, which used to invalidate the seal and make
+# macOS report the app as "damaged" — signing this bundle ourselves, once,
+# after everything is in place, avoids that entirely.
 #
 # Keeps the venv and user data in ~/Library/Application Support instead of
 # inside the .app bundle: the bundle may be running from a read-only,
@@ -7,7 +13,7 @@
 # bundles from a randomized read-only mount), so nothing here can rely on
 # being able to write next to itself, or on paths outside the bundle being
 # visible at all.
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../Resources/app" && pwd)"
 SUPPORT_DIR="$HOME/Library/Application Support/Spend Tracker"
 VENV_DIR="$SUPPORT_DIR/venv"
 # Floor set by requirements.txt's most demanding dependency (mcp>=2.0 needs

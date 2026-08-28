@@ -23,14 +23,22 @@ APP="$SCRATCH/Spend Tracker.app"
 rm -rf "$DIST"
 mkdir -p "$DIST"
 
-osacompile -o "$APP" "$ROOT/packaging/launcher_bundled.applescript"
+# Hand-built bundle: CFBundleExecutable points straight at our shell script,
+# so Finder runs it directly with no AppleScript wrapper. (An earlier
+# version used `osacompile`, which ad-hoc signs and seals the bundle's
+# resources at creation time — adding files into Contents/Resources
+# afterward invalidated that seal, which macOS reported to users as
+# "<app> is damaged and can't be opened" rather than the milder
+# "unidentified developer" prompt. Building + signing the whole bundle
+# ourselves in one pass avoids that class of bug entirely.)
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/app"
+cp "$ROOT/packaging/Info.plist" "$APP/Contents/Info.plist"
+cp "$ROOT/packaging/launcher" "$APP/Contents/MacOS/launcher"
+chmod +x "$APP/Contents/MacOS/launcher"
 
 RESOURCES="$APP/Contents/Resources/app"
-mkdir -p "$RESOURCES"
 cp -R "$ROOT/src" "$RESOURCES/src"
 cp "$ROOT/requirements.txt" "$RESOURCES/requirements.txt"
-cp "$ROOT/packaging/launch_app_bundled.sh" "$RESOURCES/launch_app.sh"
-chmod +x "$RESOURCES/launch_app.sh"
 
 # __pycache__ (stale bytecode from running src/ locally) and any extended
 # attributes carried over by cp (e.g. com.apple.provenance) both make
@@ -38,11 +46,6 @@ chmod +x "$RESOURCES/launch_app.sh"
 find "$RESOURCES" -name "__pycache__" -type d -exec rm -rf {} +
 xattr -cr "$APP"
 
-# osacompile ad-hoc signs and seals the bundle's resources at creation time;
-# adding files into Contents/Resources afterward invalidates that seal,
-# which macOS reports to users as "<app> is damaged and can't be opened" —
-# not the friendlier "unidentified developer" prompt. Re-sign after adding
-# our files so the seal covers everything actually in the bundle.
 codesign --force --deep --sign - "$APP"
 # "code failed to satisfy specified code requirement(s)" / rejected here is
 # expected — this is an ad-hoc signature, not a notarized Developer ID one,
