@@ -31,6 +31,8 @@ Copy-Item (Join-Path $Root "packaging\launcher.ps1") (Join-Path $StageDir "launc
 
 Copy-Item -Recurse (Join-Path $Root "src") (Join-Path $AppDir "src")
 Copy-Item (Join-Path $Root "requirements.txt") (Join-Path $AppDir "requirements.txt")
+Copy-Item (Join-Path $Root "packaging\update_check.ps1") (Join-Path $AppDir "update_check.ps1")
+Copy-Item (Join-Path $Root "packaging\apply_update.ps1") (Join-Path $AppDir "apply_update.ps1")
 
 # __pycache__ picked up from a local dev run under src/ shouldn't ship --
 # it's stale bytecode tied to whatever interpreter last ran it here, not
@@ -38,9 +40,9 @@ Copy-Item (Join-Path $Root "requirements.txt") (Join-Path $AppDir "requirements.
 Get-ChildItem -Path $AppDir -Recurse -Directory -Filter "__pycache__" |
     Remove-Item -Recurse -Force
 
-# The (future) updater's source of truth for "what version is this install"
-# -- kept as the exact tag (e.g. "v0.1.2"), matching macOS: compared
-# directly against GitHub release tag_names, no v-stripping/reformatting.
+# The updater's source of truth for "what version is this install" --
+# kept as the exact tag (e.g. "v0.1.2"), matching macOS: compared directly
+# against GitHub release tag_names, no v-stripping/reformatting.
 Set-Content -Path (Join-Path $AppDir "VERSION") -Value $Version -NoNewline -Encoding utf8
 
 $ZipName = "SpendTracker-$Version-Windows.zip"
