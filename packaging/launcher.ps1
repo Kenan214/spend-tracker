@@ -1,11 +1,7 @@
 # Windows counterpart to packaging/launcher (macOS) -- the script behind
 # SpendTracker.bat, run on double-click. Locates or bootstraps a Python
-# 3.10+ venv, points the app at a writable per-user data dir, and launches
-# desktop_app.py.
-#
-# Self-update (the "apply a staged update" block the macOS launcher has at
-# the top) lands in a later change alongside the Windows update_check
-# script -- this is bootstrap+launch only, matching that task split.
+# 3.10+ venv, points the app at a writable per-user data dir, applies a
+# staged self-update if one is ready, and launches desktop_app.py.
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppDir = Join-Path $ScriptDir "app"
@@ -84,6 +80,47 @@ function Get-PythonCandidates {
 New-Item -ItemType Directory -Force -Path $SupportDir | Out-Null
 $env:SPEND_TRACKER_DATA_DIR = $SupportDir
 
+$PendingDir = Join-Path $SupportDir "pending_update"
+$PendingApp = Join-Path $PendingDir "Spend Tracker"
+$ReadyMarker = Join-Path $PendingDir "READY"
+$UpdateLogFile = Join-Path $env:TEMP "spend-tracker-updater.log"
+
+function Write-UpdateLog([string]$Message) {
+    "$(Get-Date): $Message" | Out-File -FilePath $UpdateLogFile -Append -Encoding utf8
+}
+
+# Self-update, part 1: apply an update staged by a previous launch's
+# background check (see update_check.ps1 in app/, spawned near the bottom
+# of this script). READY is only ever touched after the new install is
+# fully downloaded, extracted, and structurally verified, so its presence
+# alone is trustworthy.
+#
+# Unlike the macOS launcher -- a POSIX shell script that can `mv` the
+# bundle it's executing out of and `exec` into the replacement -- this
+# hands off to a detached helper instead of swapping $ScriptDir in place
+# itself: Windows' file-locking rules for a script mid-execution aren't
+# something to bet a working install on. Copying the helper out to a
+# fixed location outside both the old and staged folders means it's never
+# mid-rename while it's the one running.
+if ((Test-Path $ReadyMarker) -and (Test-Path (Join-Path $PendingApp "SpendTracker.bat"))) {
+    $HelperSrc = Join-Path $PendingApp "app\apply_update.ps1"
+    $HelperDst = Join-Path $SupportDir "apply_update.ps1"
+    if (Test-Path $HelperSrc) {
+        Write-UpdateLog "found staged update at $PendingApp, handing off to apply_update.ps1"
+        Copy-Item $HelperSrc $HelperDst -Force
+        Start-Process powershell.exe -ArgumentList @(
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $HelperDst,
+            "-OldDir", $ScriptDir,
+            "-NewDir", $PendingApp,
+            "-OldPid", $PID
+        ) -WindowStyle Hidden
+        exit 0
+    } else {
+        Write-UpdateLog "staged update at $PendingApp missing apply_update.ps1, discarding"
+        Remove-Item -Recurse -Force $PendingDir -ErrorAction SilentlyContinue
+    }
+}
+
 # An existing venv from a previous, older/broken interpreter attempt isn't
 # good enough just because the directory exists -- validate it, or rebuild.
 if ((Test-Path $VenvDir) -and -not (Test-PythonNewEnough $VenvPython)) {
@@ -129,7 +166,20 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Self-update check/apply lands here in a later change (see
-# packaging/update_check.sh on macOS for the reference design).
+# Self-update, part 2: kick off a background check for a newer release.
+# Detached and hidden so it survives this launcher/the app exiting and is
+# entirely silent -- no network, no newer release, a corrupted download,
+# etc. must ever be visible to the user or block using the current
+# install. Only real distributable builds carry a VERSION file
+# (build_release.ps1 writes it); a dev checkout has none, so this is a
+# no-op there.
+$VersionFile = Join-Path $AppDir "VERSION"
+$UpdateCheckScript = Join-Path $AppDir "update_check.ps1"
+if ((Test-Path $VersionFile) -and (Test-Path $UpdateCheckScript)) {
+    $CurrentVersion = (Get-Content $VersionFile -Raw).Trim()
+    Start-Process powershell.exe -ArgumentList @(
+        "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $UpdateCheckScript, $CurrentVersion
+    ) -WindowStyle Hidden
+}
 
 & $VenvPython (Join-Path $AppDir "src\spend_tracker\desktop_app.py")
