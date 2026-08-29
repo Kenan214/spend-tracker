@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest
+
+  macos-package:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Byte-compile the app source
+        run: python3 -m compileall -q src
+
+      - name: Build the macOS app bundle
+        run: packaging/build_release.sh v0.0.0-ci
+
+      - name: Verify the built bundle
+        run: |
+          set -euo pipefail
+          ZIP="dist/SpendTracker-v0.0.0-ci-macOS.zip"
+          [ -f "$ZIP" ] || { echo "::error::$ZIP was not produced"; exit 1; }
+
+          APP="dist/Spend Tracker.app"
+          [ -x "$APP/Contents/MacOS/launcher" ] || { echo "::error::launcher missing or not executable"; exit 1; }
+          [ -d "$APP/Contents/Resources/app/src/spend_tracker" ] || { echo "::error::app source missing from bundle"; exit 1; }
+          [ "$(cat "$APP/Contents/Resources/app/VERSION")" = "v0.0.0-ci" ] || { echo "::error::VERSION file mismatch"; exit 1; }
+
+          codesign --verify --deep --strict "$APP"
