@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [master]
 
+# Neither job pushes, comments, or publishes anything — both only need to
+# read the repo to check it out, build, and test.
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
