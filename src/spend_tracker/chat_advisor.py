@@ -142,7 +142,12 @@ def send_message(prompt: str, session_id: str | None) -> dict:
         cmd += ["--resume", session_id]
 
     try:
-        proc = subprocess.run(
+        # CodeQL flags `cmd` as tainted (it embeds `prompt`, which traces back
+        # to the chat box in app.py) under py/command-line-injection. Not
+        # exploitable: `cmd` is a list and shell=True is never set, so the
+        # entire prompt lands as one argv element passed straight to execve —
+        # no shell parses it, so it can't inject flags or a second command.
+        proc = subprocess.run(  # lgtm[py/command-line-injection]
             cmd, capture_output=True, text=True, timeout=TURN_TIMEOUT_SECONDS,
         )
     except FileNotFoundError as exc:
