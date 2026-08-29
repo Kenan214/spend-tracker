@@ -54,3 +54,39 @@ jobs:
           [ "$(cat "$APP/Contents/Resources/app/VERSION")" = "v0.0.0-ci" ] || { echo "::error::VERSION file mismatch"; exit 1; }
 
           codesign --verify --deep --strict "$APP"
+
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Byte-compile the app source
+        run: python -m compileall -q src
+
+      # Pinned to Windows PowerShell 5.1 rather than the runner's default
+      # `pwsh` (PowerShell 7): that's the engine SpendTracker.bat actually
+      # invokes on a user's machine (`powershell.exe`, not `pwsh.exe`), and
+      # testing under pwsh here could mask 5.1-specific behavior -- exactly
+      # the kind of gap that produced two real bugs during #7's launcher
+      # testing (see that PR).
+      - name: Build the Windows distributable
+        shell: powershell
+        run: packaging\build_release.ps1 v0.0.0-ci
+
+      - name: Verify the built distributable
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $Zip = "dist\SpendTracker-v0.0.0-ci-Windows.zip"
+          if (-not (Test-Path $Zip)) { Write-Error "::error::$Zip was not produced" }
+
+          $App = "dist\Spend Tracker"
+          if (-not (Test-Path "$App\SpendTracker.bat")) { Write-Error "::error::SpendTracker.bat missing from bundle" }
+          if (-not (Test-Path "$App\launcher.ps1")) { Write-Error "::error::launcher.ps1 missing from bundle" }
+          if (-not (Test-Path "$App\app\src\spend_tracker")) { Write-Error "::error::app source missing from bundle" }
+          if (-not (Test-Path "$App\app\update_check.ps1")) { Write-Error "::error::update_check.ps1 missing from bundle" }
+          if (-not (Test-Path "$App\app\apply_update.ps1")) { Write-Error "::error::apply_update.ps1 missing from bundle" }
+
+          $Version = (Get-Content "$App\app\VERSION" -Raw).Trim()
+          if ($Version -ne "v0.0.0-ci") { Write-Error "::error::VERSION file mismatch: got '$Version'" }
