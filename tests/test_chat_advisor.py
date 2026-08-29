@@ -20,7 +20,12 @@ class TestClaudeBinary:
 
     def test_falls_back_to_known_install_locations(self, monkeypatch):
         monkeypatch.setattr(chat_advisor.shutil, "which", lambda name: None)
-        target = chat_advisor._CLAUDE_BIN_CANDIDATES[1]
+        # Candidates 0/1 are POSIX string literals that stringify differently
+        # once round-tripped through Path on Windows (forward vs. backslash),
+        # so they'd never match `str(self) == target` there. Candidate 2 is
+        # built via Path.home() like the code under test builds it, so its
+        # string form is self-consistent on every OS.
+        target = chat_advisor._CLAUDE_BIN_CANDIDATES[2]
         monkeypatch.setattr(
             chat_advisor.Path, "is_file", lambda self: str(self) == target,
         )
