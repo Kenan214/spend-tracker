@@ -7,8 +7,6 @@
 # the top) lands in a later change alongside the Windows update_check
 # script -- this is bootstrap+launch only, matching that task split.
 
-$ErrorActionPreference = "Stop"
-
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppDir = Join-Path $ScriptDir "app"
 # Mirrors the macOS launcher's use of ~/Library/Application Support: a
@@ -102,7 +100,13 @@ if (-not (Test-Path $VenvDir)) {
         }
         Write-Log "  $($candidate.Exe) $($candidate.Args): trying venv creation"
         if (Test-Path $VenvDir) { Remove-Item -Recurse -Force $VenvDir }
-        & $candidate.Exe @($candidate.Args) -m venv $VenvDir *>> $LogFile
+        # Piped through Out-File rather than a raw `*>>` redirect: the latter
+        # writes in a different default encoding than Out-File's -Encoding
+        # utf8 used elsewhere for this log, which garbles the file when the
+        # two are mixed. $LASTEXITCODE still reflects the native command
+        # here -- Out-File is a cmdlet, so it doesn't reset it.
+        & $candidate.Exe @($candidate.Args) -m venv $VenvDir 2>&1 |
+            Out-File -FilePath $LogFile -Append -Encoding utf8
         if ($LASTEXITCODE -eq 0) {
             $created = $true
             Write-Log "  $($candidate.Exe): venv created successfully"
@@ -116,7 +120,8 @@ if (-not (Test-Path $VenvDir)) {
     }
 }
 
-& $VenvPython -m pip install -q -r (Join-Path $AppDir "requirements.txt") *>> $LogFile
+& $VenvPython -m pip install -q -r (Join-Path $AppDir "requirements.txt") 2>&1 |
+    Out-File -FilePath $LogFile -Append -Encoding utf8
 if ($LASTEXITCODE -ne 0) {
     $lastError = (Get-Content $LogFile -Tail 3 -ErrorAction SilentlyContinue) -join " "
     if (-not $lastError) { $lastError = "see $LogFile for details" }
