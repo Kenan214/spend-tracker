@@ -5,6 +5,8 @@ CSV exports. Everything runs and stores data locally — nothing leaves your mac
 
 ## Install (no development tools needed)
 
+### macOS
+
 1. Download `SpendTracker-<version>-macOS.zip` from the
    [latest release](https://github.com/Kenan214/spend-tracker/releases/latest)
    and unzip it (double-click in Finder if it doesn't auto-unzip).
@@ -30,24 +32,56 @@ Your data (`spend.db`, imported CSVs) lives in
 `~/Library/Application Support/Spend Tracker/`, separate from the app itself
 — it's untouched if you later update to a newer release.
 
+### Windows
+
+1. Download `SpendTracker-<version>-Windows.zip` from the
+   [latest release](https://github.com/Kenan214/spend-tracker/releases/latest)
+   and extract it (right-click → **Extract All**, or double-click if your
+   system auto-opens zips) — you'll get a "Spend Tracker" folder.
+2. Open that folder and double-click `SpendTracker.bat`. The build isn't
+   code-signed (that requires a paid code-signing certificate), so Windows
+   Defender SmartScreen will likely block it the first time with *"Windows
+   protected your PC."* This is expected — to allow it:
+   - Click **More info**, then **Run anyway**.
+   - This one-time approval is per-file (based on the file's reputation),
+     so every launch after that is a normal double-click. It's also the
+     *last* time you'll need to do this manually — see "Staying up to
+     date" below.
+3. First launch takes a minute or two — it's bootstrapping a Python virtual
+   environment and installing dependencies in the background. Requires
+   [Python 3.10+](https://python.org) to already be installed; if no
+   working install is found you'll get a clear alert saying so, rather than
+   a silent failure.
+
+Your data (`spend.db`, imported CSVs) and the Python venv both live in
+`%LOCALAPPDATA%\Spend Tracker\`, separate from the app folder itself — it's
+untouched if you later replace that folder with a newer release.
+
 ### Staying up to date
 
 Once you've approved and launched the app the first time, it keeps itself
-up to date automatically — no more re-downloading from GitHub or clicking
-through **System Settings → Privacy & Security** for later versions.
+up to date automatically — no more re-downloading from GitHub or re-doing
+the one-time approval step above for later versions.
 
 Every launch, the app quietly checks GitHub for a newer release in the
 background (at most once every 30 minutes) and, if one exists, downloads
 and verifies it without interrupting what you're doing. The next time you
 launch the app, it swaps in the new version before opening (you may notice
 a brief extra moment on that one launch) and you're running the update —
-still with no Gatekeeper prompt, since the app itself downloaded the file
-rather than a browser or Finder. This relies on `com.apple.quarantine` (the
-attribute that triggers Gatekeeper's "unidentified developer" block) only
-being attached by quarantine-aware tools like Safari or Finder's
-unzip-from-download — a plain background download by an app you've already
-approved never gets it, the same trick real third-party updaters (e.g.
-Sparkle) rely on.
+still with no re-approval prompt, since the app itself downloaded the file
+rather than a browser (on macOS) or Explorer's unzip wizard (on Windows).
+
+- **macOS**: this relies on `com.apple.quarantine` (the attribute that
+  triggers Gatekeeper's "unidentified developer" block) only being attached
+  by quarantine-aware tools like Safari or Finder's unzip-from-download — a
+  plain background download by an app you've already approved never gets
+  it, the same trick real third-party updaters (e.g. Sparkle) rely on.
+- **Windows**: the equivalent is the `Zone.Identifier` alternate-data-stream
+  that triggers "this file came from another computer" warnings and feeds
+  SmartScreen — `Invoke-WebRequest`/`Expand-Archive`, used by the
+  background check, don't attach it (unlike a browser download or
+  Explorer's "Extract All"), so the swapped-in update launches clean with
+  no re-approval needed.
 
 This is entirely best-effort: no internet, GitHub being unreachable, a
 corrupted download, etc. never blocks or breaks the currently-installed
@@ -57,6 +91,13 @@ can't be turned off.
 
 ## Cutting a release
 
+Each release has one tag but can carry both platforms' zips — build
+whichever platform(s) you have hardware for and upload to the same release
+(`gh release create` only needs to run once per version; `gh release
+upload` can be run again later, from a different machine, to add the other
+platform's asset).
+
+**macOS** (run on a Mac):
 ```bash
 packaging/build_release.sh v0.1.2
 gh release create v0.1.2 --title v0.1.2 --generate-notes
@@ -71,11 +112,24 @@ repo root above. It also stamps the given version into
 `CFBundleShortVersionString`/`CFBundleVersion` (previously hardcoded to a
 stale `"1.0"`/`"1"` for every build).
 
-The asset name (`SpendTracker-<version>-macOS.zip`) and the fact that
-`releases/latest` is unauthenticated-fetchable now that the repo is public
-are both load-bearing for the self-updater (`packaging/update_check.sh`),
-which parses exactly that filename pattern out of the GitHub Releases API
-response — don't rename the asset format without updating it too.
+**Windows** (run on Windows, in PowerShell):
+```powershell
+packaging\build_release.ps1 v0.1.2
+gh release create v0.1.2 --title v0.1.2 --generate-notes   # skip if already created for this version
+gh release upload v0.1.2 dist\SpendTracker-v0.1.2-Windows.zip
+```
+`build_release.ps1` produces a self-contained "Spend Tracker" folder
+(source bundled inside `app/`) in `dist/`, and stamps the given version
+into `app/VERSION` (the self-updater's source of truth for "what's
+currently installed").
+
+The asset names (`SpendTracker-<version>-macOS.zip` /
+`SpendTracker-<version>-Windows.zip`) and the fact that `releases/latest`
+is unauthenticated-fetchable now that the repo is public are both
+load-bearing for the self-updaters (`packaging/update_check.sh` and
+`packaging/update_check.ps1`), which each parse their platform's exact
+filename pattern out of the GitHub Releases API response — don't rename
+either asset format without updating its updater too.
 
 ## Setup (development)
 
